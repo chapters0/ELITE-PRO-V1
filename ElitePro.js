@@ -2503,139 +2503,154 @@ case 'clearchat': {
 break
 case 'image':
 case 'img': {
-    if (!text) return reply('📸 Please enter a search term!\n\nExample:\nimg car')
+    if (!text) {
+        return reply(
+            '📸 Please enter a search term!\n\n' +
+            'Example:\n.img cat'
+        )
+    }
     await EliteProTech.sendMessage(m.chat, {
         react: { text: '⏳', key: m.key }
     })
-    try {
-        const res = await axios.get(`https://eliteprotech-apis.zone.id/bingimg?q=${encodeURIComponent(text)}`)
-        if (!res.data?.status || !Array.isArray(res.data.results) || res.data.results.length === 0) {
-            await EliteProTech.sendMessage(m.chat, {
-                react: { text: '❌', key: m.key }
-            })
-            return reply('❌ No images found.')
-        }
-        const selected = res.data.results.sort(() => 0.5 - Math.random()).slice(0, 10)
-        let failed = 0
-        const cards = await Promise.all(
-            selected.map(async (item, index) => {
-                try {
-                    if (!item.image) return null
-                    const response = await axios.get(item.image, {
-                        responseType: 'arraybuffer',
-                        timeout: 15000
-                    })
-                    const buffer = Buffer.from(response.data)
-                    const imageMessage = (
-                        await generateWAMessageContent(
-                            { image: buffer },
-                            { upload: EliteProTech.waUploadToServer }
-                        )
-                    ).imageMessage
-                    return {
-                        header: {
-                            title: `🖼️ Image ${index + 1}`,
-                            subtitle: '',
-                            imageMessage,
-                            hasMediaAttachment: true
-                        },
-                        body: {
-                            text: `*${res.data.query}*\n${item.title || ''}`
-                        },
-                        footer: {
-                            text: 'ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴇʟɪᴛᴇ-ᴘʀᴏ-ᴛᴇᴄʜ'
-                        },
-                        nativeFlowMessage: {
-                            buttons: [
-                                {
-                                    name: 'cta_url',
-                                    buttonParamsJson: JSON.stringify({
-                                        display_text: 'Open',
-                                        url: item.image
-                                    })
-                                }
-                            ],
-                            messageParamsJson: '{}'
-                        }
-                    }
-                } catch {
-                    failed++
-                    return null
-                }
-            })
-        )
-        const validCards = cards.filter(Boolean)
-        if (!validCards.length) {
-            await EliteProTech.sendMessage(m.chat, {
-                react: { text: '❌', key: m.key }
-            })
-            return reply('❌ Failed to process images.')
-        }
-        const message = generateWAMessageFromContent(
-            m.chat,
-            {
-                interactiveMessage: {
-                    header: {
-                        hasMediaAttachment: false
-                    },
-                    body: {
-                        text: `🖼️ Results for: *${text}*`
-                    },
-                    footer: {
-                        text: `📂 ${validCards.length}/${res.data.total} images${failed ? ` • ⚠️ ${failed} failed` : ''}`
-                    },
-                    carouselMessage: {
-                        cards: validCards
-                    },
-                    contextInfo: {}
-                }
-            },
-            {
-                userJid: EliteProTech.user.id,
-                quoted: m
-            }
-        )
-        await EliteProTech.relayMessage(
-            m.chat,
-            message.message,
-            {
-                messageId: message.key.id,
-                additionalNodes: [
-                    {
-                        tag: 'biz',
-                        attrs: {},
-                        content: [
-                            {
-                                tag: 'interactive',
-                                attrs: {
-                                    type: 'native_flow',
-                                    v: '1'
-                                },
-                                content: [
-                                    {
-                                        tag: 'native_flow',
-                                        attrs: {
-                                            v: '9',
-                                            name: 'mixed'
-                                        }
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            }
-        )
-        await EliteProTech.sendMessage(m.chat, {
-            react: { text: '✅', key: m.key }
-        })
-    } catch (err) {
-        console.log('Image command error:', err.message)
+    const res = await axios.get(
+        `https://eliteprotech-apis.zone.id/bingimg?q=${encodeURIComponent(text)}`
+    )
+    if (
+        !res.data?.status ||
+        !Array.isArray(res.data.results) ||
+        !res.data.results.length
+    ) {
         await EliteProTech.sendMessage(m.chat, {
             react: { text: '❌', key: m.key }
         })
-        reply('❌ Error fetching images.')
+        return reply('❌ No images found.')
     }
+    const selected = res.data.results
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 5)
+    const cards = await Promise.all(
+        selected.map(async (item, index) => {
+            const response = await axios.get(item.image, {
+                responseType: 'arraybuffer',
+                timeout: 15000
+            })
+            const imageMessage = (
+                await generateWAMessageContent(
+                    {
+                        image: Buffer.from(response.data)
+                    },
+                    {
+                        upload: EliteProTech.waUploadToServer
+                    }
+                )
+            ).imageMessage
+            return {
+                header: {
+                    title: `🖼️ Image ${index + 1}`,
+                    subtitle: '',
+                    imageMessage,
+                    hasMediaAttachment: true
+                },
+
+                body: {
+                    text: `*${text}*\n${item.title || ''}`
+                },
+
+                footer: {
+                    text: 'ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴇʟɪᴛᴇ-ᴘʀᴏ-ᴛᴇᴄʜ'
+                },
+
+                nativeFlowMessage: {
+                    buttons: [
+                        {
+                            name: 'cta_url',
+                            buttonParamsJson: JSON.stringify({
+                                display_text: 'Open',
+                                url: item.image
+                            })
+                        }
+                    ],
+                    messageParamsJson: '{}'
+                }
+            }
+        })
+    )
+
+    const validCards = cards.filter(Boolean)
+
+    if (!validCards.length) {
+        await EliteProTech.sendMessage(m.chat, {
+            react: { text: '❌', key: m.key }
+        })
+        return reply('❌ Failed to process images.')
+    }
+    const msg = generateWAMessageFromContent(
+        m.chat,
+        {
+            interactiveMessage: {
+                header: {
+                    hasMediaAttachment: false
+                },
+                body: {
+                    text: `🖼️ Results for: *${text}*`
+                },
+                footer: {
+                    text: `📂 ${validCards.length}/${res.data.total || validCards.length} images`
+                },
+                carouselMessage: {
+                    cards: validCards
+                },
+                contextInfo: {
+                    stanzaId: m.key.id,
+                    participant: m.sender,
+                    quotedMessage: {
+                        conversation: m.text || m.body || `.${command} ${text}`
+                    }
+                }
+            }
+        },
+        {
+            userJid: EliteProTech.user.id,
+            quoted: m
+        }
+    )
+    await EliteProTech.relayMessage(
+        m.chat,
+        msg.message,
+        {
+            messageId: msg.key.id,
+            additionalNodes: [
+                {
+                    tag: 'biz',
+                    attrs: {},
+                    content: [
+                        {
+                            tag: 'interactive',
+                            attrs: {
+                                type: 'native_flow',
+                                v: '1'
+                            },
+                            content: [
+                                {
+                                    tag: 'native_flow',
+                                    attrs: {
+                                        v: '9',
+                                        name: 'mixed'
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+    )
+    await EliteProTech.sendMessage(m.chat, {
+        react: {
+            text: '✅',
+            key: m.key
+        }
+    })
     break
 }
 case 'removebg': {
