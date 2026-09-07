@@ -2319,87 +2319,188 @@ for (let number of numbers) {
 }
 
 reply(`✅ Added: ${addedCount}\n❌ Failed: ${failed.length > 0 ? failed.join(', ') : 'None'}`)
-break;
+break
 case 'pinterest': {
-    await EliteProTech.sendMessage(m.chat, { react: { text: "📌", key: m.key } });
+    await EliteProTech.sendMessage(m.chat, {
+        react: { text: "📌", key: m.key }
+    });
 
     if (!text) {
         return reply(`📌 Example:
 • Download: ${prefix + command} https://pin.it/1YSo1okSW
 • Search: ${prefix + command} A guy in hoodie`);
     }
-
     try {
-        // Check if the input is a Pinterest link or search query
         if (text.includes("pinterest.com") || text.includes("pin.it")) {
-            // DOWNLOAD MODE
-            let apiUrl = `https://apis.prexzyvilla.site/download/pinterestV2?url=${encodeURIComponent(text)}`;
+            let apiUrl = `https://eliteprotech-apis.zone.id/pinterest?url=${encodeURIComponent(text)}`;
             let res = await fetchJson(apiUrl);
 
-            if (!res || !res.status || !res.data) {
+            if (!res || !res.status || !res.media) {
                 return reply("⚠️ Failed to fetch Pinterest media. Please check the link and try again.");
             }
-
-            let { thumb, video, image } = res.data;
-
-            if (video) {
+            const media = res.media;
+            if (media.video) {
                 await EliteProTech.sendMessage(
                     m.chat,
                     {
-                        video: { url: video },
+                        video: { url: media.video },
                         mimetype: "video/mp4",
-                        caption: `🎬 *Pinterest Video Downloaded!*\n> *Powered by ᴇʟɪᴛᴇ-ᴘʀᴏ-ᴛᴇᴄʜ*`
+                        caption:
+                            `🎬 *Pinterest Video Downloaded!*\n` +
+                            `📺 *Resolution:* ${media.resolution || "Original"}\n` +
+                            `> *Powered by ᴇʟɪᴛᴇ-ᴘʀᴏ-ᴛᴇᴄʜ*`
                     },
                     { quoted: m }
                 );
-            } else if (image) {
+            } else if (media.thumbnail) {
                 await EliteProTech.sendMessage(
                     m.chat,
                     {
-                        image: { url: image },
-                        caption: `🖼️ *Pinterest Image Downloaded!*\n> *Powered by ᴇʟɪᴛᴇ-ᴘʀᴏ-ᴛᴇᴄʜ*`
+                        image: { url: media.thumbnail },
+                        caption:
+                            `🖼️ *Pinterest Image Downloaded!*\n` +
+                            `📺 *Resolution:* ${media.resolution || "Original"}\n` +
+                            `> *Powered by ᴇʟɪᴛᴇ-ᴘʀᴏ-ᴛᴇᴄʜ*`
                     },
                     { quoted: m }
                 );
             } else {
-                reply("⚠️ No downloadable media found in this Pinterest link.");
+                return reply("⚠️ No downloadable media found in this Pinterest link.");
             }
         } else {
-            // SEARCH MODE
-            let searchUrl = `https://ab-pinetrest.abrahamdw882.workers.dev/?query=${encodeURIComponent(text)}`;
+            let searchUrl =
+                `https://ab-pinetrest.abrahamdw882.workers.dev/?query=${encodeURIComponent(text)}`;
             let result = await fetchJson(searchUrl);
-
-            if (!result || !result.status || !result.data || result.data.length === 0) {
+            if (
+                !result ||
+                !result.status ||
+                !result.data ||
+                result.data.length === 0
+            ) {
                 return reply(`⚠️ No results found for: *${text}*`);
             }
+            const pins = result.data.slice(0, 5);
+            const cards = await Promise.all(
+                pins.map(async (pin, index) => {
+                    if (!pin.image) return null;
 
-            let pins = result.data.slice(0, 10); // Limit to top 10 for readability
-            let msg = `🔎 *Pinterest Search Results for:* _${text}_\n\n`;
-
-            for (let pin of pins) {
-                msg += `📌 *${pin.title || "No title"}*\n👤 *Uploader:* ${pin.uploader?.full_name || "Unknown"}\n🔗 ${pin.pin_url}\n\n`;
+                    const response = await axios.get(pin.image, {
+                        responseType: 'arraybuffer',
+                        timeout: 15000
+                    });
+                    const imageMessage = (
+                        await generateWAMessageContent(
+                            {
+                                image: Buffer.from(response.data)
+                            },
+                            {
+                                upload: EliteProTech.waUploadToServer
+                            }
+                        )
+                    ).imageMessage;
+                    return {
+                        header: {
+                            title: `📌 Pin ${index + 1}`,
+                            subtitle: pin.uploader?.full_name || "Unknown",
+                            imageMessage,
+                            hasMediaAttachment: true
+                        },
+                        body: {
+                            text:
+                                `*${pin.title || "No title"}*\n` +
+                                `👤 ${pin.uploader?.full_name || "Unknown"}`
+                        },
+                        footer: {
+                            text: 'ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴇʟɪᴛᴇ-ᴘʀᴏ-ᴛᴇᴄʜ'
+                        },
+                        nativeFlowMessage: {
+                            buttons: [
+                                {
+                                    name: 'cta_url',
+                                    buttonParamsJson: JSON.stringify({
+                                        display_text: 'Open Pin',
+                                        url: pin.pin_url
+                                    })
+                                }
+                            ],
+                            messageParamsJson: '{}'
+                        }
+                    };
+                })
+            );
+            const validCards = cards.filter(Boolean);
+            if (!validCards.length) {
+                return reply("⚠️ Failed to load Pinterest images.");
             }
-
-            await EliteProTech.sendMessage(m.chat, { text: msg.trim() }, { quoted: m });
-
-            // Send preview images
-            for (let pin of pins.slice(0, 5)) {
-                await EliteProTech.sendMessage(
-                    m.chat,
-                    {
-                        image: { url: pin.image },
-                        caption: `📌 *${pin.title || "No title"}*\n👤 *${pin.uploader?.full_name || "Unknown"}*\n🔗 ${pin.pin_url}\n> *Powered by ᴇʟɪᴛᴇ-ᴘʀᴏ-ᴛᴇᴄʜ*`
-                    },
-                    { quoted: m }
-                );
-            }
+            const msg = generateWAMessageFromContent(
+                m.chat,
+                {
+                    interactiveMessage: {
+                        header: {
+                            hasMediaAttachment: false
+                        },
+                        body: {
+                            text: `📌 Pinterest Results for: *${text}*`
+                        },
+                        footer: {
+                            text: `📂 ${validCards.length} results`
+                        },
+                        carouselMessage: {
+                            cards: validCards
+                        },
+                        contextInfo: {
+                            stanzaId: m.key.id,
+                            participant: m.sender,
+                            quotedMessage: {
+                                conversation:
+                                    m.text || m.body || `.${command} ${text}`
+                            }
+                        }
+                    }
+                },
+                {
+                    userJid: EliteProTech.user.id,
+                    quoted: m
+                }
+            );
+            await EliteProTech.relayMessage(
+                m.chat,
+                msg.message,
+                {
+                    messageId: msg.key.id,
+                    additionalNodes: [
+                        {
+                            tag: 'biz',
+                            attrs: {},
+                            content: [
+                                {
+                                    tag: 'interactive',
+                                    attrs: {
+                                        type: 'native_flow',
+                                        v: '1'
+                                    },
+                                    content: [
+                                        {
+                                            tag: 'native_flow',
+                                            attrs: {
+                                                v: '9',
+                                                name: 'mixed'
+                                            }
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    ]
+                }
+            );
         }
     } catch (err) {
         console.error("Pinterest error:", err);
         reply("❌ An error occurred while processing your Pinterest request.");
     }
+    break;
 }
-break
 case 'flirt': {
     try {
         let apiUrl = `https://api.giftedtech.web.id/api/fun/flirt?apikey=gifted`;
