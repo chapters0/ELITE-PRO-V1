@@ -8478,55 +8478,47 @@ await EliteProTech.groupRevokeInvite(m.chat)
                     .then(res => {
                         reply(`Successful Reset, Group Invite Link ${groupMetadata.subject}`)
                     }).catch((err) => reply(json(err)))
-break;
+break
 case 'runtime':
 case 'uptime': {
     await EliteProTech.sendMessage(m.chat, {
         react: { text: "⚙️", key: m.key }
     });
-
-    function formatUptime(seconds) {
-        const d = Math.floor(seconds / 86400);
-        seconds %= 86400;
-        const h = Math.floor(seconds / 3600);
-        seconds %= 3600;
-        const m = Math.floor(seconds / 60);
-        const s = Math.floor(seconds % 60);
-        return `${d > 0 ? d + 'd ' : ''}${h}h ${m}m ${s}s`;
-    }
-
-    try {
-        const runtimetext = `> ╭━━━━━━━━
-> *Uptime:* *${formatUptime(process.uptime())}*
-> ╰━━━━━━━━
-> *ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴇʟɪᴛᴇ-ᴘʀᴏ-ᴛᴇᴄʜ©*`;
-
-        await sendInteractiveMessage(
-            EliteProTech,
-            m.chat,
-            {
-                text: runtimetext,
-                footer: 'Choose an action:',
-                interactiveButtons: [
+    const uptime = process.uptime();
+    const hours = Math.floor(uptime / 3600);
+    const minutes = Math.floor((uptime % 3600) / 60);
+    const seconds = Math.floor(uptime % 60);
+    const msg = generateWAMessageFromContent(
+        m.chat,
+        {
+            pollResultSnapshotMessage: {
+                name: "Runtime Info",
+                pollVotes: [
                     {
-                        name: 'quick_reply',
-                        buttonParamsJson: JSON.stringify({
-                            display_text: 'Menu 📃',
-                            id: `${global.prefix}menu`
-                        })
+                        optionName: "Runtime (Hours)",
+                        optionVoteCount: String(hours)
+                    },
+                    {
+                        optionName: "Runtime (Minutes)",
+                        optionVoteCount: String(minutes)
+                    },
+                    {
+                        optionName: "Runtime (Seconds)",
+                        optionVoteCount: String(seconds)
                     }
                 ]
-            },
-            { quoted: m }
-        );
-
-    } catch (err) {
-        console.error("Error in uptime message:", err);
-        reply("❌ Failed to send uptime message.");
-    }
+            }
+        },
+        {
+            userJid: EliteProTech.user.id,
+            quoted: m
+        }
+    );
+    await EliteProTech.relayMessage(m.chat, msg.message, {
+        messageId: msg.key.id
+    });
     break;
 }
-break
 case 'sc':
 case 'script':
 case 'repo': {
